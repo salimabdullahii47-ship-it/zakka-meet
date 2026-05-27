@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Zakka Meet - Enterprise Video</title>
+    <style>
+        body { margin: 0; background: #111; color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #header-bar { height: 40px; background: #1a1a1a; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .dev-badge { background: #5856d6; color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        #active-speaker-stage { flex: 1; display: flex; justify-content: center; align-items: center; background: #1c1a27; position: relative; transition: background 0.3s; }
+        #active-video { width: 100%; height: 100%; max-height: 80vh; object-fit: contain; border-radius: 8px; filter: brightness(1.10) contrast(1.05) saturate(1.02); }
+        #ai-subtitle-overlay { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); color: #ffd60a; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; display: none; z-index: 5; text-align: center; }
+        #horizontal-carousel { height: 140px; background: #1a1a1a; display: flex; gap: 12px; padding: 15px; overflow-x: auto; justify-content: flex-start; box-sizing: border-box; }
+        .carousel-card { min-width: 150px; width: 150px; height: 110px; background: #221f33; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; transition: background 0.3s; cursor: pointer; }
+        .carousel-card video { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+        .user-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); padding: 2px 5px; font-size: 11px; border-radius: 3px; max-width: 90%; overflow: hidden; }
+        #action-bar { height: 70px; background: #050505; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        button { background: #222; color: white; border: 1px solid #333; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        button:hover { background: #333; }
+        .btn-danger { background: #dc3545; }
+        #copyBtn { border-color: #30d158; color: #30d158; }
+        #copyBtn:hover { background: rgba(48, 209, 88, 0.1); }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="header-bar">
+        <div>🔒 E2EE MLS Secure Node</div>
+        <div class="dev-badge">💻 Developer: Salim Abdullahi Zakka</div>
+        <div id="room-status" style="color: #30d158;">🟢 Connected to Gateway</div>
+    </div>
+
+    <div id="active-speaker-stage">
+        <video id="active-video" autoplay playsinline></video>
+        <div id="ai-subtitle-overlay">🤖 AI Subtitles Listening...</div>
+    </div>
+
+    <div id="horizontal-carousel">
+        <div class="carousel-card" id="localCard">
+            <video id="local-video" autoplay playsinline muted></video>
+            <div class="user-label">Salim (You)</div>
+        </div>
+    </div>
+
+    <div id="action-bar">
+        <button id="muteBtn">🎙️ Mute</button>
+        <button id="camBtn">🎥 Camera Off</button>
+        <button id="shareBtn">🖥️ Share Screen</button>
+        <button id="aiBtn">🤖 AI Assist</button>
+        <button id="copyBtn">🔗 Copy Invite Link</button>
+        <button class="btn-danger" onclick="window.location.reload()">❌ Leave</button>
+    </div>
+
+    <script>
+        let localStream;
+        const currentRoom = 'final-room'; 
+        const activeVideo = document.getElementById('active-video');
+        const localVideo = document.getElementById('local-video');
+        const mainStage = document.getElementById('active-speaker-stage');
+        const localCard = document.getElementById('localCard');
+        const carousel = document.getElementById('horizontal-carousel');
+
+        const socket = io();
+        const peerConnections = {}; 
+        const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
+        async function startCamera() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                if(!activeVideo.srcObject) activeVideo.srcObject = localStream;
+                mainStage.style.backgroundColor = "#000";
+                localCard.style.backgroundColor = "#2a2a2a";
+                
+                socket.emit('joinRoom', { roomId: currentRoom, userName: 'Salim Abdullahi Zakka' });
+            } catch (err) {
+                alert("Camera access needed! Click 'Allow' on your browser popup.");
+            }
+        }
+
+        // WebRTC Signaling Channels (Linked directly to your server.js events)
+        socket.on('user-joined', async (data) => {
+            const pc = createPeerConnection(data.socketId);
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('media-offer', { room: currentRoom, sdp: offer });
+        });
+
+        socket.on('media-offer', async (data) => {
+            const pc = createPeerConnection(data.sender);
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('media-answer', { target: data.sender, sdp: answer });
+        });
+
+        socket.on('media-answer', async (data) => {
+            if (peerConnections[data.sender]) {
+                await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(data.sdp));
+            }
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            if (peerConnections[data.sender] && data.candidate) {
+                await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+
+        socket.on('user-left', (data) => {
+            if (peerConnections[data.socketId]) {
+                peerConnections[data.socketId].close();
+                delete peerConnections[data.socketId];
+            }
+            const card = document.getElementById(`card-${data.socketId}`);
+            if (card) card.remove();
+        });
+
+        function createPeerConnection(targetUserId) {
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[targetUserId] = pc;
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', { target: targetUserId, candidate: event.candidate });
+                }
+            };
+
+            pc.ontrack = (event) => {
+                let card = document.getElementById(`card-${targetUserId}`);
+                if (!card) {
+                    card = document.createElement('div');
+                    card.className = 'carousel-card';
+                    card.id = `card-${targetUserId}`;
+                    
+                    const remoteVideo = document.createElement('video');
+                    remoteVideo.autoplay = true;
+                    remoteVideo.playsInline = true;
+                    remoteVideo.srcObject = event.streams;
+                    
+                    card.onclick = () => { activeVideo.srcObject = event.streams; };
+
+                    const label = document.createElement('div');
+                    label.className = 'user-label';
+                    label.innerText = `User (${targetUserId.substring(0, 4)})`;
+
+                    card.appendChild(remoteVideo);
+                    card.appendChild(label);
+                    if (carousel) carousel.appendChild(card);
+                }
+            };
+
+            return pc;
+        }
+
+        // Functional Layout Interaction Button Handlers
+        let isMuted = false;
+        document.getElementById('muteBtn').addEventListener('click', () => {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+            document.getElementById('muteBtn').innerText = isMuted ? "🎙️ Unmute" : "🎙️ Mute";
+            document.getElementById('muteBtn').style.backgroundColor = isMuted ? "#5856d6" : "#222";
+        });
+
+        let isCamOff = false;
+        document.getElementById('camBtn').addEventListener('click', async () => {
+            isCamOff = !isCamOff;
+            if (isCamOff) {
+                if (localStream) localStream.getVideoTracks().forEach(t => t.stop());
+                localVideo.srcObject = null;
+                if(activeVideo.srcObject === localStream) activeVideo.srcObject = null;
+                mainStage.style.backgroundColor = "#2b2244"; 
+                localCard.style.backgroundColor = "#5856d6";
+                document.getElementById('camBtn').innerText = "🎥 Camera On";
+                document.getElementById('camBtn').style.backgroundColor = "#5856d6";
+            } else {
+                await startCamera();
+                document.getElementById('camBtn').innerText = "🎥 Camera Off";
+                document.getElementById('camBtn').style.backgroundColor = "#222";
+            }
+        });
+
+        document.getElementById('shareBtn').addEventListener('click', async () => {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                activeVideo.srcObject = screenStream;
+                document.getElementById('shareBtn').style.backgroundColor = "#5856d6";
+                screenStream.getVideoTracks().onended = () => {
+                    activeVideo.srcObject = localStream;
+                    document.getElementById('shareBtn').style.backgroundColor = "#222";
+                };
+            } catch (err) {}
+        });
+
+        // Live Subtitles System Module
+        let aiActive = false;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+        if (recognition) {
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.onresult = (event) => {
+                let text = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    text += event.results[i].transcript;
+                }
+                document.getElementById('ai-subtitle-overlay').innerText = "🤖 AI Subtitles: " + text;
+            };
+        }
+
+        document.getElementById('aiBtn').addEventListener('click', () => {
+            if (!recognition) return alert("Speech recognition is not supported on this browser.");
+            aiActive = !aiActive;
+            if (aiActive) {
+                document.getElementById('ai-subtitle-overlay').style.display = "block";
+                document.getElementById('aiBtn').style.backgroundColor = "#5856d6";
+                recognition.start();
+            } else {
+                document.getElementById('ai-subtitle-overlay').style.display = "none";
+                document.getElementById('aiBtn').style.backgroundColor = "#222";
+                recognition.stop();
+            }
+        });
+
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const currentURL = window.location.href;
+            navigator.clipboard.writeText(currentURL).then(() => {
+                document.getElementById('copyBtn').innerText = "✅ Copied Link!";
+                setTimeout(() => { document.getElementById('copyBtn').innerText = "🔗 Copy Invite Link"; }, 2000);
+            }).catch(err => { alert("Copy link manually: " + currentURL); });
+        });
+
+        startCamera();
+    </script>
+</body>
+</html>
