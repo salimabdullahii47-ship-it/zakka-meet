@@ -94,6 +94,9 @@
         </select>
         <button id="recordBtn" style="border-color: #666;">⏺️ Record</button>
         <button id="shareFileBtn" style="border-color: #666; display: none;">📤 Share Recording</button>
+        <button id="trackConversationBtn" style="border-color: #666;">📝 Track Conversation</button>
+        <button id="clinicalTestBtn" style="border-color: #666;">🩺 Clinical Test</button>
+        <div id="recordStateInfo" style="margin-left: 12px; color: #9ddfd3; font-size: 13px; white-space: nowrap;">No recordings yet.</div>
 
         <button id="shareBtn">🖥️ Share Screen</button>
         <button id="aiBtn">🤖 AI Assist</button>
@@ -116,6 +119,36 @@
         <div style="padding: 15px; background: #111; display: flex; gap: 8px; border-top: 1px solid #333;">
             <input type="text" id="chatInput" placeholder="Type a message..." style="flex: 1; background: #222; border: 1px solid #444; color: white; padding: 8px; border-radius: 4px; outline: none;">
             <button onclick="sendChatMessage()" style="padding: 8px 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer;">Send</button>
+        </div>
+    </div>
+
+    <div id="tracking-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; justify-content:center; align-items:center;">
+        <div style="background:#111; color:white; width:90%; max-width:420px; border-radius:12px; padding:22px; border:1px solid #333;">
+            <h3 style="margin-top:0;">Track Conversation</h3>
+            <input id="trackTopic" placeholder="Topic or context" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;">
+            <textarea id="trackNotes" placeholder="Conversation notes" style="width:100%; height:100px; margin-bottom:10px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;"></textarea>
+            <input id="trackRelated" placeholder="Related subject / object" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;">
+            <input id="trackMetadata" placeholder="Metadata (optional)" style="width:100%; margin-bottom:14px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;">
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="closeModal('tracking-modal')" style="background:#333;">Cancel</button>
+                <button onclick="submitConversationTracking()" style="background:#0b5fff;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clinical-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; justify-content:center; align-items:center;">
+        <div style="background:#111; color:white; width:90%; max-width:420px; border-radius:12px; padding:22px; border:1px solid #333;">
+            <h3 style="margin-top:0;">Submit Clinical Test</h3>
+            <select id="clinicalType" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;">
+                <option value="blood">Blood Test</option>
+                <option value="xray">X-ray Report</option>
+                <option value="other">Other Diagnostic</option>
+            </select>
+            <textarea id="clinicalDetails" placeholder="Describe the sample, scan or subject" style="width:100%; height:100px; margin-bottom:10px; padding:10px; border:1px solid #333; border-radius:6px; background:#1a1a1a; color:white;"></textarea>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="closeModal('clinical-modal')" style="background:#333;">Cancel</button>
+                <button onclick="submitClinicalTest()" style="background:#0b5fff;">Submit</button>
+            </div>
         </div>
     </div>
 
@@ -200,6 +233,7 @@
         const recordBtn = document.getElementById('recordBtn');
         const recordModeSelect = document.getElementById('recordModeSelect');
         const shareFileBtn = document.getElementById('shareFileBtn');
+        const recordStateInfo = document.getElementById('recordStateInfo');
 
         // ========================================
         // === CORE FUNCTIONS ===
@@ -290,6 +324,54 @@
                 localStorage.setItem('zakka_user', JSON.stringify(user));
             }
             return user;
+        }
+
+        function getRecordingHistory() {
+            try {
+                return JSON.parse(localStorage.getItem('zakka_record_history') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveRecordingHistory(history) {
+            localStorage.setItem('zakka_record_history', JSON.stringify(history));
+        }
+
+        function addRecordingSession(session) {
+            const history = getRecordingHistory();
+            history.push(session);
+            saveRecordingHistory(history);
+        }
+
+        function updateLastRecordingSession(update) {
+            const history = getRecordingHistory();
+            if (!history.length) return;
+            const last = history[history.length - 1];
+            Object.assign(last, update);
+            saveRecordingHistory(history);
+        }
+
+        function formatTimestamp(ts) {
+            return new Date(ts).toLocaleString();
+        }
+
+        function setRecordStatusMessage(text) {
+            if (recordStateInfo) recordStateInfo.innerText = text;
+        }
+
+        function loadRecordingState() {
+            const history = getRecordingHistory();
+            if (!history.length) {
+                setRecordStatusMessage('No recordings yet.');
+                return;
+            }
+            const last = history[history.length - 1];
+            if (!last.stoppedAt) {
+                setRecordStatusMessage(`Last recording started at ${formatTimestamp(last.startedAt)} and was not stopped.`);
+            } else {
+                setRecordStatusMessage(`Last recording ${formatTimestamp(last.startedAt)} → ${formatTimestamp(last.stoppedAt)} (${last.mode}).`);
+            }
         }
 
         async function startCamera(facingMode = "user") {
@@ -388,13 +470,17 @@
                     a.download = `ZakkaMeet-${mode}-${Date.now()}.${fileExt}`;
                     a.click();
                     shareFileBtn.style.display = "inline-block";
+                    updateLastRecordingSession({ stoppedAt: Date.now() });
+                    setRecordStatusMessage(`Recording stopped at ${formatTimestamp(Date.now())}.`);
                 };
                 
                 mediaRecorder.start();
+                addRecordingSession({ startedAt: Date.now(), stoppedAt: null, mode });
                 isRecording = true;
                 recordBtn.innerText = "🛑 Stop";
                 recordBtn.style.backgroundColor = "#444";
                 shareFileBtn.style.display = "none";
+                setRecordStatusMessage(`Recording started at ${formatTimestamp(Date.now())}.`);
             } else {
                 mediaRecorder.stop();
                 isRecording = false;
@@ -426,11 +512,74 @@
             }
         });
 
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function submitConversationTracking() {
+            const topic = document.getElementById('trackTopic').value.trim();
+            const notes = document.getElementById('trackNotes').value.trim();
+            const relatedObject = document.getElementById('trackRelated').value.trim();
+            const metadata = document.getElementById('trackMetadata').value.trim();
+            const token = localStorage.getItem('zakka_auth_token');
+
+            const res = await fetch('/api/conversations/track', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ roomId: currentRoom, topic, notes, relatedObject, metadata: metadata ? { note: metadata } : null })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                closeModal('tracking-modal');
+                alert('Conversation logged successfully.');
+            } else {
+                alert(result.error || 'Unable to save conversation tracking.');
+            }
+        }
+
+        async function submitClinicalTest() {
+            const testType = document.getElementById('clinicalType').value;
+            const details = document.getElementById('clinicalDetails').value.trim();
+            const token = localStorage.getItem('zakka_auth_token');
+
+            const res = await fetch('/api/clinical-tests/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ meetingId: currentRoom, testType, details })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                closeModal('clinical-modal');
+                alert('Clinical test request submitted.');
+            } else {
+                alert(result.error || 'Unable to submit clinical test.');
+            }
+        }
+
+        loadRecordingState();
+
         // ========================================
         // === BUTTON EVENT LISTENERS ===
         // ========================================
 
         document.getElementById('muteBtn').addEventListener('click', toggleAudio);
+
+        document.getElementById('trackConversationBtn').addEventListener('click', () => openModal('tracking-modal'));
+        document.getElementById('clinicalTestBtn').addEventListener('click', () => openModal('clinical-modal'));
 
         document.getElementById('camBtn').addEventListener('click', async () => {
             isCamOff = !isCamOff;

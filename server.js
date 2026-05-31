@@ -12,6 +12,8 @@ const auth = require('./auth');
 const meetings = require('./meetings');
 const recordings = require('./recordings');
 const monetization = require('./monetization');
+const tracking = require('./tracking');
+const clinical = require('./clinical');
 const i18n = require('./i18n');
 
 const app = express();
@@ -156,6 +158,29 @@ app.post('/api/payment/create-transaction', auth.authenticateToken, async (req, 
   res.json(result);
 });
 
+// Universal conversation tracking APIs
+app.post('/api/conversations/track', auth.authenticateToken, (req, res) => {
+  const { roomId, topic, notes, relatedObject, metadata } = req.body;
+  const result = tracking.logConversation(req.userId, roomId, topic, notes, relatedObject, metadata);
+  res.json(result);
+});
+
+app.get('/api/conversations/:userId', auth.authenticateToken, (req, res) => {
+  const entries = tracking.getConversationsForUser(req.params.userId);
+  res.json(entries);
+});
+
+app.post('/api/clinical-tests/submit', auth.authenticateToken, (req, res) => {
+  const { meetingId, testType, details } = req.body;
+  const result = clinical.submitClinicalTest(req.userId, meetingId, testType, details);
+  res.json(result);
+});
+
+app.get('/api/clinical-tests/:userId', auth.authenticateToken, (req, res) => {
+  const tests = clinical.getClinicalTestsForUser(req.params.userId);
+  res.json(tests);
+});
+
 // ==========================================
 // ===== LOCALIZATION API =====
 // ==========================================
@@ -195,15 +220,22 @@ app.get('/terms-conditions', (req, res) => {
 // ===== SOCKET.IO HANDLERS =====
 // ==========================================
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const isVercel = !!process.env.VERCEL;
+let server = null;
+let io = null;
+
+if (!isVercel) {
+  server = http.createServer(app);
+  io = new Server(server, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+  });
+}
 
 const rooms = {}; // Store room data
 const userSockets = {}; // Map userId to socketId
 
-io.on('connection', (socket) => {
+if (!isVercel) {
+  io.on('connection', (socket) => {
   console.log(`✅ User connected: ${socket.id}`);
 
   // Join meeting room
@@ -438,7 +470,7 @@ io.on('connection', (socket) => {
       socket.emit('admin-action-result', { success: false, error: err.message });
     }
   });
-});
+}
 
 // ==========================================
 // ===== CATCH-ALL FOR FRONTEND ROUTING =====
@@ -448,13 +480,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+module.exports = app;
+
 // ==========================================
 // ===== SERVER START =====
 // ==========================================
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Zakka Meet Pro running on port ${PORT}`);
-  console.log(`Developer: Salim Abdullahi Zakka`);
-  console.log(`Database initialized at: ${path.join(__dirname, 'zakka-meet.db')}`);
-});
+if (!isVercel) {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`🚀 Zakka Meet Pro running on port ${PORT}`);
+    console.log(`Developer: Salim Abdullahi Zakka`);
+    console.log(`Database initialized at: ${path.join(__dirname, 'zakka-meet.db')}`);
+  });
+}
