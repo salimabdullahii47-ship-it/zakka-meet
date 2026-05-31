@@ -2,7 +2,9 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, 'zakka-meet.db');
+const DB_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'zakka-meet.db')
+  : path.join(__dirname, 'zakka-meet.db');
 
 // Initialize database
 const db = new Database(DB_PATH, { 
@@ -126,6 +128,39 @@ function initializeDatabase() {
       FOREIGN KEY(recipient_id) REFERENCES users(id),
       FOREIGN KEY(meeting_id) REFERENCES meetings(id),
       FOREIGN KEY(recording_id) REFERENCES recordings(id)
+    )
+  `);
+
+  // Conversation tracking table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS conversation_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      room_id TEXT,
+      topic TEXT,
+      notes TEXT,
+      related_object TEXT,
+      metadata TEXT,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ended_at DATETIME,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `);
+
+  // Clinical tests table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS clinical_tests (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      meeting_id TEXT,
+      test_type TEXT NOT NULL,
+      details TEXT,
+      result_summary TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(meeting_id) REFERENCES meetings(id)
     )
   `);
 

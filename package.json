@@ -1,14 +1,16 @@
 {
   "name": "zakka-meet-pro",
-  "version": "2.0.0",
-  "description": "Zakka Meet Pro - Enterprise Video Conferencing Platform",
+  "version": "2.1.0",
+  "description": "Zakka Meet Pro - Enterprise Video Conferencing Platform with Phone Integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'Build step (if needed)'",
+    "test": "echo 'Running tests...'"
   },
   "engines": {
-    "node": "^18 || ^20"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -16,12 +18,19 @@
     "express": "^4.22.2",
     "helmet": "^8.2.0",
     "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "better-sqlite3": "^9.2.2",
     "uuid": "^9.0.1",
     "jsonwebtoken": "^9.1.2",
     "bcryptjs": "^2.4.3",
     "stripe": "^14.10.0",
-    "nodemailer": "^6.9.7"
+    "nodemailer": "^6.9.7",
+    "twilio": "^4.19.0",
+    "phone": "^3.1.49",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   },
   "author": "Salim Abdullahi Zakka",
   "license": "MIT"

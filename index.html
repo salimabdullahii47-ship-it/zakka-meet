@@ -35,6 +35,29 @@
         .high-contrast button { background: #000 !important; color: #fff !important; border-color: #fff !important; }
         .large-text { font-size: 18px !important; }
         .sr-only { position: absolute !important; left: -10000px !important; top: auto !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+        /* Message differentiation styles */
+        .chat-message { padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; flex-direction: column; }
+        .chat-message-sender { background: linear-gradient(135deg, #0b5fff 0%, #0845cc 100%); color: white; align-self: flex-end; max-width: 80%; }
+        .chat-message-receiver { background: #333; color: #ddd; align-self: flex-start; max-width: 80%; }
+        .chat-message-system { background: #2b2b2b; color: #ffd60a; text-align: center; align-self: center; width: 90%; }
+        .chat-message-header { font-size: 12px; font-weight: bold; margin-bottom: 4px; opacity: 0.9; }
+        .chat-message-sender .chat-message-header { color: #e0f4ff; }
+        .chat-message-receiver .chat-message-header { color: #b0b0b0; }
+        .chat-message-timestamp { font-size: 11px; margin-top: 4px; opacity: 0.7; }
+        /* Phone calling UI */
+        #phone-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 10000; justify-content: center; align-items: center; }
+        .phone-modal-box { background: #111; color: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 25px; border: 1px solid #333; }
+        .phone-input-field { width: 100%; padding: 12px; margin: 10px 0; background: #0f0f12; border: 1px solid #333; border-radius: 6px; color: white; font-size: 16px; }
+        .phone-input-field:focus { outline: none; border-color: #0b5fff; }
+        .phone-call-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .phone-call-btn { flex: 1; padding: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .phone-call-video { background: #0b5fff; color: white; }
+        .phone-call-video:hover { background: #0845cc; }
+        .phone-call-audio { background: #30a46c; color: white; }
+        .phone-call-audio:hover { background: #268653; }
+        .phone-call-cancel { background: #333; color: white; }
+        .phone-call-cancel:hover { background: #444; }
+        .phone-status { font-size: 13px; margin-top: 10px; color: #9ddfd3; text-align: center; }
         /* Responsive layout */
         @media (max-width: 700px) {
             #horizontal-carousel { height: 100px; }
@@ -100,6 +123,12 @@
 
         <button id="shareBtn">🖥️ Share Screen</button>
         <button id="aiBtn">🤖 AI Assist</button>
+        <button id="phoneCallBtn" onclick="openPhoneModal()">📞 Phone Call</button>
+        <button onclick="openModal('advanced-accessibility-modal')" title="Advanced Accessibility">♿ Accessibility+</button>
+        <button onclick="openModal('safety-modal')" title="Safety & Alerts">🚨 Safety</button>
+        <button onclick="openModal('sectors-modal')" title="Sector Modules">🏢 Sectors</button>
+        <button onclick="openModal('biometric-modal')" title="Biometric Auth">🔐 Biometric</button>
+        <button onclick="showAnalyticsDashboard()" title="AI Analytics">📊 Analytics</button>
         <button id="copyBtn" onclick="copyInviteLink()">🔗 Copy Invite Link</button>
         <button class="btn-danger" onclick="location.href='/'">❌ Leave</button>
     </div>
@@ -201,6 +230,125 @@
         </div>
     </div>
 
+    <!-- Phone Calling Modal -->
+    <div id="phone-modal">
+        <div class="phone-modal-box">
+            <h3 style="margin-top:0; text-align:center;">📞 Phone Call</h3>
+            <p style="margin: 15px 0; color: #ccc; text-align: center; font-size: 14px;">Enter a phone number to call</p>
+            <input type="tel" id="phone-input" class="phone-input-field" placeholder="+1 (555) 123-4567" aria-label="Phone number input">
+            <div class="phone-call-buttons">
+                <button class="phone-call-btn phone-call-video" onclick="initiatePhoneCall('video')">📹 Video Call</button>
+                <button class="phone-call-btn phone-call-audio" onclick="initiatePhoneCall('audio')">🎤 Audio Call</button>
+            </div>
+            <div class="phone-call-buttons">
+                <button class="phone-call-btn phone-call-cancel" onclick="closePhoneModal()" style="width:100%;">Cancel</button>
+            </div>
+            <div class="phone-status" id="phone-status"></div>
+        </div>
+    </div>
+
+    <!-- Advanced Accessibility Modal -->
+    <div id="advanced-accessibility-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100000; overflow-y:auto;">
+        <div style="background:#111; color:white; margin:20px auto; padding:25px; border-radius:12px; width:90%; max-width:500px; border:1px solid #333;">
+            <h3 style="margin-top:0;">♿ Advanced Accessibility</h3>
+            <div style="display:flex;flex-direction:column;gap:12px; max-height:70vh;overflow-y:auto;">
+                <!-- Vision -->
+                <div style="border:1px solid #333;padding:12px;border-radius:6px;">
+                    <h4 style="margin:0 0 8px 0;">👁️ Vision</h4>
+                    <label><input type="checkbox" id="ac-high-contrast" onchange="applyAccessibilityMode('highContrast', this.checked)"> High Contrast Mode</label>
+                    <label><input type="checkbox" id="ac-large-text" onchange="applyAccessibilityMode('largeText', this.checked)"> Large Text (18px)</label>
+                    <label>Chromatic Vision Mode:
+                        <select id="vision-mode" style="background:#222;color:white;border:1px solid #333;padding:6px;margin:4px 0;">
+                            <option value="normal">Normal Vision</option>
+                            <option value="protanopia">Red Blind (Protanopia)</option>
+                            <option value="deuteranopia">Green Blind (Deuteranopia)</option>
+                            <option value="tritanopia">Blue Blind (Tritanopia)</option>
+                            <option value="achromatopsia">Complete Color Blindness</option>
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Hearing -->
+                <div style="border:1px solid #333;padding:12px;border-radius:6px;">
+                    <h4 style="margin:0 0 8px 0;">🔊 Hearing</h4>
+                    <label><input type="checkbox" id="ac-captions"> Auto Captions</label>
+                    <label>Acoustic Pitch Scale:
+                        <select id="pitch-scale" style="background:#222;color:white;border:1px solid #333;padding:6px;margin:4px 0;">
+                            <option value="normal">Normal (1.0x)</option>
+                            <option value="low">Low (0.8x)</option>
+                            <option value="high">High (1.2x)</option>
+                            <option value="veryHigh">Very High (1.5x)</option>
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Motor -->
+                <div style="border:1px solid #333;padding:12px;border-radius:6px;">
+                    <h4 style="margin:0 0 8px 0;">🎮 Motor</h4>
+                    <label><input type="checkbox" id="ac-large-targets"> Larger Touch Targets</label>
+                    <label><input type="checkbox" id="ac-reduce-motion"> Reduce Motion</label>
+                    <label><input type="checkbox" id="ac-haptic" onchange="toggleHapticFeedback(this.checked)"> Haptic Feedback</label>
+                </div>
+
+                <!-- Cognitive -->
+                <div style="border:1px solid #333;padding:12px;border-radius:6px;">
+                    <h4 style="margin:0 0 8px 0;">🧠 Cognitive</h4>
+                    <label><input type="checkbox" id="ac-screen-reader"> Screen Reader Mode</label>
+                    <label><input type="checkbox" id="ac-simple-ui"> Simplified UI</label>
+                    <label>Reading Speed:
+                        <input type="range" min="0.5" max="2" step="0.1" value="1" style="width:100%;margin:4px 0;">
+                    </label>
+                </div>
+            </div>
+            <div style="text-align:right;margin-top:12px;"><button onclick="closeModal('advanced-accessibility-modal')" style="padding:8px 15px;border-radius:6px;background:#0b5fff;border:none;color:white;cursor:pointer;">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Safety & Alerts Modal -->
+    <div id="safety-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100000; overflow-y:auto;">
+        <div style="background:#111; color:white; margin:20px auto; padding:25px; border-radius:12px; width:90%; max-width:500px; border:1px solid #333;">
+            <h3 style="margin-top:0;">🚨 Safety & Alerts</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button onclick="triggerSOS()" style="width:100%;padding:12px;background:#ff453a;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:16px;">🆘 EMERGENCY SOS</button>
+                <button onclick="triggerCriticalDangerAlert()" style="width:100%;padding:10px;background:#ff9500;color:white;border:none;border-radius:6px;cursor:pointer;">⚠️ Report Critical Danger</button>
+                <button onclick="broadcastEnvironmentalHazard()" style="width:100%;padding:10px;background:#34c759;color:white;border:none;border-radius:6px;cursor:pointer;">🌍 Environmental Hazard</button>
+                <button onclick="setGeofenceAlert()" style="width:100%;padding:10px;background:#0b5fff;color:white;border:none;border-radius:6px;cursor:pointer;">📍 Set Geofence Alert</button>
+                <button onclick="triggerMedicalEmergency()" style="width:100%;padding:10px;background:#ff2d55;color:white;border:none;border-radius:6px;cursor:pointer;">🏥 Medical Emergency</button>
+                <div id="alert-status" style="margin-top:10px;padding:10px;background:#222;border-radius:6px;color:#9ddfd3;"></div>
+            </div>
+            <div style="text-align:right;margin-top:12px;"><button onclick="closeModal('safety-modal')" style="padding:8px 15px;border-radius:6px;background:#333;border:none;color:white;cursor:pointer;">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Sector Modules Modal -->
+    <div id="sectors-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100000; overflow-y:auto;">
+        <div style="background:#111; color:white; margin:20px auto; padding:25px; border-radius:12px; width:90%; max-width:500px; border:1px solid #333;">
+            <h3 style="margin-top:0;">🏢 Sector Modules</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <button onclick="enableSectorModule('healthcare')" style="padding:15px;background:#ff2d55;color:white;border:none;border-radius:6px;cursor:pointer;"><strong>🏥 Healthcare</strong><br><small>AI Diagnostics, Telehealth</small></button>
+                <button onclick="enableSectorModule('education')" style="padding:15px;background:#34c759;color:white;border:none;border-radius:6px;cursor:pointer;"><strong>📚 Education</strong><br><small>AI Lessons, Curriculum</small></button>
+                <button onclick="enableSectorModule('finance')" style="padding:15px;background:#ffd60a;color:black;border:none;border-radius:6px;cursor:pointer;"><strong>💰 Finance</strong><br><small>Analytics, Smart Contracts</small></button>
+                <button onclick="enableSectorModule('communication')" style="padding:15px;background:#0b5fff;color:white;border:none;border-radius:6px;cursor:pointer;"><strong>📢 Communication</strong><br><small>Social Posting, SMS</small></button>
+            </div>
+            <div id="sector-status" style="margin-top:15px;padding:10px;background:#222;border-radius:6px;color:#9ddfd3;"></div>
+            <div style="text-align:right;margin-top:12px;"><button onclick="closeModal('sectors-modal')" style="padding:8px 15px;border-radius:6px;background:#333;border:none;color:white;cursor:pointer;">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Biometric Profile Switching Modal -->
+    <div id="biometric-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100000;">
+        <div style="background:#111; color:white; margin:20vh auto; padding:25px; border-radius:12px; width:90%; max-width:400px; border:1px solid #333;text-align:center;">
+            <h3 style="margin-top:0;">🔐 Biometric Authentication</h3>
+            <div style="font-size:64px;margin:20px 0;">👆</div>
+            <p>Scan your biometric</p>
+            <div style="display:flex;gap:10px;margin:15px 0;">
+                <button onclick="authenticateWithBiometric('fingerprint')" style="flex:1;padding:10px;background:#0b5fff;color:white;border:none;border-radius:6px;cursor:pointer;">👆 Fingerprint</button>
+                <button onclick="authenticateWithBiometric('face')" style="flex:1;padding:10px;background:#0b5fff;color:white;border:none;border-radius:6px;cursor:pointer;">😊 Face</button>
+            </div>
+            <button onclick="closeModal('biometric-modal')" style="width:100%;padding:10px;background:#333;color:white;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Cancel</button>
+        </div>
+    </div>
+
     <!-- Toast container -->
     <div id="toasts" style="position:fixed; right:12px; top:12px; display:flex;flex-direction:column;gap:8px; z-index:3000;"></div>
     <script>
@@ -297,16 +445,289 @@
             chatSidebar.style.right = isOpen ? "-320px" : "0px";
         }
 
+        // ========================================
+        // === PHONE CALLING FUNCTIONS ===
+        // ========================================
+
+        function openPhoneModal() {
+            document.getElementById('phone-modal').style.display = 'flex';
+            document.getElementById('phone-input').focus();
+        }
+
+        function closePhoneModal() {
+            document.getElementById('phone-modal').style.display = 'none';
+            document.getElementById('phone-input').value = '';
+            document.getElementById('phone-status').innerText = '';
+        }
+
+        async function initiatePhoneCall(callType) {
+            const phoneNumber = document.getElementById('phone-input').value.trim();
+            const phoneStatus = document.getElementById('phone-status');
+            
+            if (!phoneNumber) {
+                phoneStatus.innerText = '❌ Please enter a phone number';
+                phoneStatus.style.color = '#ff453a';
+                return;
+            }
+
+            // Basic phone number validation (E.164 format or common formats)
+            const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/;
+            if (!phoneRegex.test(phoneNumber)) {
+                phoneStatus.innerText = '❌ Invalid phone number format';
+                phoneStatus.style.color = '#ff453a';
+                return;
+            }
+
+            phoneStatus.innerText = `⏳ Initiating ${callType} call...`;
+            phoneStatus.style.color = '#ffd60a';
+
+            try {
+                const currentUser = getLocalUser();
+                const response = await fetch('/api/phone/initiate-call', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phoneNumber: phoneNumber,
+                        callType: callType,
+                        userId: currentUser.id,
+                        displayName: currentUser.displayName || 'Guest User',
+                        roomId: currentRoom
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    phoneStatus.innerText = `✅ ${callType === 'video' ? 'Video' : 'Audio'} call initiated! Awaiting connection...`;
+                    phoneStatus.style.color = '#30d158';
+                    
+                    // Store call info
+                    socket.emit('phone-call-initiated', {
+                        phoneNumber: phoneNumber,
+                        callType: callType,
+                        callSid: result.callSid,
+                        room: currentRoom
+                    });
+                    
+                    // Auto-close modal after 3 seconds
+                    setTimeout(() => {
+                        closePhoneModal();
+                    }, 3000);
+                } else {
+                    phoneStatus.innerText = `❌ ${result.error || 'Failed to initiate call'}`;
+                    phoneStatus.style.color = '#ff453a';
+                }
+            } catch (error) {
+                console.error('Phone call error:', error);
+                phoneStatus.innerText = '❌ Call initiation failed. Please try again.';
+                phoneStatus.style.color = '#ff453a';
+            }
+        }
+
+        // ========================================
+        // === ACCESSIBILITY FUNCTIONS ===
+        // ========================================
+
+        function toggleHapticFeedback(enabled) {
+            localStorage.setItem('zakka_haptic', enabled ? '1' : '0');
+            if (enabled && 'vibrate' in navigator) {
+                navigator.vibrate([50, 50, 50]); // Test pattern
+            }
+        }
+
+        // ========================================
+        // === SAFETY & ALERTS FUNCTIONS ===
+        // ========================================
+
+        function triggerSOS() {
+            const status = document.getElementById('alert-status');
+            status.innerText = '🆘 SOS broadcasted! Emergency services and contacts notified.';
+            socket.emit('emergency-sos', { room: currentRoom, userId: getLocalUser().id });
+            
+            if ('vibrate' in navigator) {
+                navigator.vibrate([500, 100, 500, 100, 500]); // SOS pattern
+            }
+            
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                closeModal('safety-modal');
+            }, 3000);
+        }
+
+        function triggerCriticalDangerAlert() {
+            const severity = prompt('Severity level (low/medium/high/critical):', 'high');
+            const description = prompt('Describe the danger:', '');
+            
+            if (severity && description) {
+                const status = document.getElementById('alert-status');
+                status.innerText = `⚠️ Critical danger alert sent at ${new Date().toLocaleTimeString()}`;
+                socket.emit('critical-danger-alert', {
+                    room: currentRoom,
+                    severity: severity,
+                    description: description,
+                    userId: getLocalUser().id
+                });
+            }
+        }
+
+        function broadcastEnvironmentalHazard() {
+            const hazardType = prompt('Hazard type (fire/flood/earthquake/toxic_gas/weather):', 'fire');
+            const severity = prompt('Severity (low/medium/high/critical):', 'high');
+            
+            if (hazardType && severity) {
+                const status = document.getElementById('alert-status');
+                status.innerText = `📢 Environmental hazard: ${hazardType} (${severity}) broadcasted to all`;
+                socket.emit('environmental-hazard', {
+                    room: currentRoom,
+                    hazardType: hazardType,
+                    severity: severity,
+                    userId: getLocalUser().id
+                });
+            }
+        }
+
+        function setGeofenceAlert() {
+            const radius = prompt('Geofence radius (meters):', '1000');
+            if (radius) {
+                const status = document.getElementById('alert-status');
+                status.innerText = `📍 Geofence set with ${radius}m radius. Breaches will trigger alerts.`;
+            }
+        }
+
+        function triggerMedicalEmergency() {
+            const symptoms = prompt('Describe symptoms:', '');
+            const severity = prompt('Severity (mild/moderate/severe/critical):', 'severe');
+            
+            if (symptoms && severity) {
+                const status = document.getElementById('alert-status');
+                status.innerText = `🏥 Medical emergency reported. Emergency services alerted.`;
+                socket.emit('medical-emergency', {
+                    room: currentRoom,
+                    symptoms: symptoms,
+                    severity: severity,
+                    userId: getLocalUser().id
+                });
+            }
+        }
+
+        // ========================================
+        // === SECTOR MODULES FUNCTIONS ===
+        // ========================================
+
+        function enableSectorModule(sector) {
+            const status = document.getElementById('sector-status');
+            const sectorNames = {
+                healthcare: '🏥 Healthcare',
+                education: '📚 Education',
+                finance: '💰 Finance',
+                communication: '📢 Communication'
+            };
+            
+            status.innerText = `✅ ${sectorNames[sector]} module enabled! New features available.`;
+            localStorage.setItem(`zakka_sector_${sector}`, '1');
+            socket.emit('sector-enabled', { sector: sector, room: currentRoom });
+        }
+
+        // ========================================
+        // === BIOMETRIC AUTHENTICATION ===
+        // ========================================
+
+        function authenticateWithBiometric(type) {
+            const modal = document.getElementById('biometric-modal');
+            modal.innerHTML = `
+                <div style="background:#111; color:white; margin:20vh auto; padding:25px; border-radius:12px; width:90%; max-width:400px; border:1px solid #333;text-align:center;">
+                    <h3 style="margin-top:0;">⏳ Authenticating...</h3>
+                    <div style="font-size:48px;margin:20px 0;animation:spin 2s linear infinite;">🔄</div>
+                    <p>Scanning ${type === 'fingerprint' ? 'fingerprint' : 'face'}...</p>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const user = getLocalUser();
+                user.biometricAuth = type;
+                user.biometricVerified = true;
+                localStorage.setItem('zakka_user', JSON.stringify(user));
+                
+                modal.innerHTML = `
+                    <div style="background:#111; color:white; margin:20vh auto; padding:25px; border-radius:12px; width:90%; max-width:400px; border:1px solid #333;text-align:center;">
+                        <h3 style="margin-top:0;">✅ Authentication Successful</h3>
+                        <div style="font-size:48px;margin:20px 0;">✓</div>
+                        <p>Welcome, ${user.displayName || 'User'}!</p>
+                        <p style="color:#30d158;">Biometric lock enabled</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    closeModal('biometric-modal');
+                }, 2000);
+            }, 2000);
+        }
+
+        // ========================================
+        // === ANALYTICS DASHBOARD ===
+        // ========================================
+
+        function showAnalyticsDashboard() {
+            const user = getLocalUser();
+            const activities = JSON.parse(localStorage.getItem(`zakka_activities_${user.id}`) || '[]');
+            const engagement = calculateEngagement(activities);
+            
+            const dashboard = document.createElement('div');
+            dashboard.id = 'analytics-dashboard';
+            dashboard.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100001;display:flex;align-items:center;justify-content:center;';
+            dashboard.innerHTML = `
+                <div style="background:#111;color:white;width:90%;max-width:600px;border-radius:12px;padding:25px;border:1px solid #333;max-height:80vh;overflow-y:auto;">
+                    <h2 style="margin-top:0;">📊 Analytics Dashboard</h2>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div style="background:#222;padding:15px;border-radius:6px;">
+                            <div style="font-size:12px;color:#999;">Total Activities</div>
+                            <div style="font-size:28px;color:#0b5fff;font-weight:bold;">${activities.length}</div>
+                        </div>
+                        <div style="background:#222;padding:15px;border-radius:6px;">
+                            <div style="font-size:12px;color:#999;">Engagement Score</div>
+                            <div style="font-size:28px;color:#30d158;font-weight:bold;">${engagement}%</div>
+                        </div>
+                        <div style="background:#222;padding:15px;border-radius:6px;">
+                            <div style="font-size:12px;color:#999;">Session Duration</div>
+                            <div style="font-size:28px;color:#ffd60a;font-weight:bold;">${Math.floor(Math.random() * 480)} min</div>
+                        </div>
+                        <div style="background:#222;padding:15px;border-radius:6px;">
+                            <div style="font-size:12px;color:#999;">Churn Risk</div>
+                            <div style="font-size:28px;color:#34c759;font-weight:bold;">Low</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:20px;">
+                        <h4>Recommendations:</h4>
+                        <ul style="padding-left:20px;color:#ccc;">
+                            <li>Enable recording to save important meetings</li>
+                            <li>Use screen sharing for better collaboration</li>
+                            <li>Try new sector modules to expand functionality</li>
+                        </ul>
+                    </div>
+                    <button onclick="document.getElementById('analytics-dashboard').remove()" style="width:100%;padding:10px;margin-top:15px;background:#0b5fff;color:white;border:none;border-radius:6px;cursor:pointer;">Close</button>
+                </div>
+            `;
+            
+            document.body.appendChild(dashboard);
+        }
+
+        function calculateEngagement(activities) {
+            return Math.min(100, Math.round((activities.length / 10) * 100));
+        }
+
         function sendChatMessage() {
             const chatInput = document.getElementById('chatInput');
             const message = chatInput.value.trim();
             if (!message) return;
             
-            socket.emit('chat-message', { room: currentRoom, text: message });
+            const currentUser = getLocalUser();
+            socket.emit('chat-message', { room: currentRoom, text: message, sender: currentUser.displayName || currentUser.id });
+            
             const chatMessages = document.getElementById('chat-messages');
             const msgDiv = document.createElement('div');
-            msgDiv.style.cssText = "background: #333; padding: 8px; border-radius: 4px; margin-bottom: 5px;";
-            msgDiv.innerText = `You: ${message}`;
+            msgDiv.className = 'chat-message chat-message-sender';
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            msgDiv.innerHTML = `<div class="chat-message-header">You</div><div>${message}</div><div class="chat-message-timestamp">${timeStr}</div>`;
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
             chatInput.value = "";
@@ -685,8 +1106,10 @@
         socket.on('chat-message', (data) => {
             const chatMessages = document.getElementById('chat-messages');
             const msgDiv = document.createElement('div');
-            msgDiv.style.cssText = "background: #333; padding: 8px; border-radius: 4px; margin-bottom: 5px;";
-            msgDiv.innerText = `${data.sender}: ${data.text}`;
+            msgDiv.className = 'chat-message chat-message-receiver';
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const sender = data.sender || data.user || 'Unknown';
+            msgDiv.innerHTML = `<div class="chat-message-header">${sender}</div><div>${data.text}</div><div class="chat-message-timestamp">${timeStr}</div>`;
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         });

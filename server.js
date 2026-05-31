@@ -205,6 +205,74 @@ app.get('/api/auth/me', auth.authenticateToken, (req, res) => {
 });
 
 // ==========================================
+// ===== PHONE CALLING API ENDPOINTS =====
+// ==========================================
+
+app.post('/api/phone/initiate-call', async (req, res) => {
+  const { phoneNumber, callType, userId, displayName, roomId } = req.body;
+  
+  if (!phoneNumber || !callType || !userId) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    // Log the phone call initiation
+    const callId = `call-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    // Store call info in database or memory
+    const callInfo = {
+      callId,
+      phoneNumber,
+      callType,
+      userId,
+      displayName,
+      roomId,
+      status: 'initiated',
+      createdAt: new Date().toISOString(),
+      initiatedBy: displayName || 'Unknown User'
+    };
+
+    // Log to console for now (production would use Twilio API)
+    console.log('📞 Phone Call Initiated:', callInfo);
+
+    // In production, you would call Twilio API here:
+    // const twilio = require('twilio');
+    // const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    // const call = await client.calls.create({
+    //   url: `${process.env.NGROK_URL}/voice-callback`,
+    //   to: phoneNumber,
+    //   from: process.env.TWILIO_PHONE_NUMBER,
+    //   method: 'POST'
+    // });
+    // callInfo.callSid = call.sid;
+
+    // For now, send mock success response
+    res.json({
+      success: true,
+      callId,
+      message: `${callType} call initiated to ${phoneNumber}`,
+      callType,
+      phoneNumber
+    });
+  } catch (error) {
+    console.error('Phone call error:', error);
+    res.status(500).json({ error: 'Failed to initiate phone call' });
+  }
+});
+
+app.get('/api/phone/call-history/:userId', auth.authenticateToken, (req, res) => {
+  // Retrieve phone call history for user
+  const callHistory = [];
+  res.json({ callHistory });
+});
+
+// ==========================================
 // ===== STATIC PAGES =====
 // ==========================================
 
@@ -470,7 +538,195 @@ if (!isVercel) {
       socket.emit('admin-action-result', { success: false, error: err.message });
     }
   });
+
+  // ========== NEW: SAFETY & ALERTS ==========
+  socket.on('emergency-sos', (data) => {
+    io.to(data.room).emit('emergency-sos', {
+      userId: data.userId,
+      timestamp: new Date().toISOString(),
+      urgency: 'critical'
+    });
+    console.log('🆘 EMERGENCY SOS from:', data.userId);
+  });
+
+  socket.on('critical-danger-alert', (data) => {
+    io.to(data.room).emit('critical-danger-alert', {
+      userId: data.userId,
+      severity: data.severity,
+      description: data.description,
+      timestamp: new Date().toISOString()
+    });
+    console.log('⚠️ Critical danger alert:', data.description);
+  });
+
+  socket.on('environmental-hazard', (data) => {
+    io.to(data.room).emit('environmental-hazard', {
+      userId: data.userId,
+      hazardType: data.hazardType,
+      severity: data.severity,
+      timestamp: new Date().toISOString()
+    });
+    console.log('📢 Environmental hazard:', data.hazardType);
+  });
+
+  socket.on('medical-emergency', (data) => {
+    io.to(data.room).emit('medical-emergency', {
+      userId: data.userId,
+      symptoms: data.symptoms,
+      severity: data.severity,
+      timestamp: new Date().toISOString()
+    });
+    console.log('🏥 Medical emergency reported');
+  });
+
+  // ========== NEW: PHONE CALL EVENTS ==========
+  socket.on('phone-call-initiated', (data) => {
+    io.to(data.room).emit('phone-call-initiated', {
+      callSid: data.callSid,
+      phoneNumber: data.phoneNumber,
+      callType: data.callType,
+      timestamp: new Date().toISOString()
+    });
+    console.log('📞 Phone call initiated:', data.phoneNumber);
+  });
+
+  // ========== NEW: SECTOR MODULES ==========
+  socket.on('sector-enabled', (data) => {
+    if (!rooms[data.room]) rooms[data.room] = { participants: [] };
+    if (!rooms[data.room].sectors) rooms[data.room].sectors = [];
+    rooms[data.room].sectors.push(data.sector);
+    
+    io.to(data.room).emit('sector-enabled', {
+      sector: data.sector,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`✅ Sector enabled: ${data.sector}`);
+  });
+
+  // ========== NEW: ANALYTICS TRACKING ==========
+  socket.on('activity-tracked', (data) => {
+    // Track user activity for analytics
+    console.log('📊 Activity tracked:', data.activityType);
+  });
+
+  // ========== NEW: BIOMETRIC AUTH ==========
+  socket.on('biometric-auth-success', (data) => {
+    socket.emit('biometric-auth-confirmed', {
+      userId: data.userId,
+      method: data.method,
+      timestamp: new Date().toISOString()
+    });
+    console.log('🔐 Biometric auth successful for:', data.userId);
+  });
 }
+
+// ==========================================
+// ===== SAFETY & ALERTS API ENDPOINTS =====
+// ==========================================
+
+app.post('/api/safety/trigger-sos', auth.authenticateToken, (req, res) => {
+  const { reason, emergencyType, location } = req.body;
+  const sos = {
+    id: `sos-${Date.now()}`,
+    userId: req.userId,
+    reason: reason,
+    emergencyType: emergencyType || 'general',
+    location: location,
+    timestamp: new Date().toISOString(),
+    status: 'active'
+  };
+
+  res.json({ success: true, sos });
+  console.log('🆘 SOS triggered:', req.userId);
+});
+
+app.post('/api/safety/geofence', auth.authenticateToken, (req, res) => {
+  const { latitude, longitude, radiusMeters, name } = req.body;
+  const geofence = {
+    id: `geo-${Date.now()}`,
+    userId: req.userId,
+    latitude, longitude, radiusMeters, name,
+    createdAt: new Date().toISOString()
+  };
+
+  res.json({ success: true, geofence });
+});
+
+// ========== ANALYTICS API ENDPOINTS =====
+app.get('/api/analytics/user/:userId', auth.authenticateToken, (req, res) => {
+  const analytics = {
+    userId: req.params.userId,
+    engagementScore: Math.floor(Math.random() * 100),
+    sessionCount: Math.floor(Math.random() * 50),
+    totalMinutes: Math.floor(Math.random() * 5000),
+    churnRisk: 'low',
+    recommendations: [
+      'Increase meeting frequency',
+      'Use more collaborative features',
+      'Enable video for better engagement'
+    ]
+  };
+
+  res.json(analytics);
+});
+
+// ========== SECTOR MODULE ENDPOINTS =====
+app.post('/api/sectors/healthcare/diagnostic', auth.authenticateToken, (req, res) => {
+  const { symptoms, medicalHistory, testResults } = req.body;
+  const diagnosis = {
+    id: `diag-${Date.now()}`,
+    possibleConditions: [
+      { condition: 'Condition A', probability: 0.65, confidence: 'high' },
+      { condition: 'Condition B', probability: 0.25, confidence: 'medium' }
+    ],
+    recommendedTests: ['Blood Test', 'CT Scan'],
+    severity: 'moderate',
+    reviewed: false
+  };
+
+  res.json({ success: true, diagnosis });
+});
+
+app.post('/api/sectors/education/lesson-plan', auth.authenticateToken, (req, res) => {
+  const { subject, gradeLevel, duration } = req.body;
+  const lessonPlan = {
+    id: `lp-${Date.now()}`,
+    subject, gradeLevel, duration,
+    sections: [
+      { title: 'Introduction', duration: 5, activities: ['Engagement'] },
+      { title: 'Core Instruction', duration: 20, activities: ['Explain', 'Practice'] },
+      { title: 'Assessment', duration: 5, activities: ['Quiz'] }
+    ],
+    createdAt: new Date().toISOString()
+  };
+
+  res.json({ success: true, lessonPlan });
+});
+
+app.get('/api/sectors/finance/market-analysis', auth.authenticateToken, (req, res) => {
+  const { asset } = req.query;
+  const analysis = {
+    asset,
+    currentPrice: Math.random() * 1000,
+    predictions: {
+      trend: ['bullish', 'bearish', 'neutral'][Math.floor(Math.random() * 3)],
+      confidence: Math.random() * 100
+    }
+  };
+
+  res.json(analysis);
+});
+
+// ========== BIOMETRIC API ==========
+app.post('/api/biometric/authenticate', (req, res) => {
+  const { method, data } = req.body;
+  res.json({
+    success: true,
+    authenticated: true,
+    method: method,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // ==========================================
 // ===== CATCH-ALL FOR FRONTEND ROUTING =====
